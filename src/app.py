@@ -4,14 +4,15 @@ import requests
 import json
 import logging
 import sys
+import socket
+import netifaces
 from flask import Flask, render_template, request, jsonify
 from PIL import Image
 from dotenv import load_dotenv
 import sqlite3
-import socket
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, 
+logging.basicConfig(level=logging.DEBUG, 
                     format='%(asctime)s - %(levelname)s - %(message)s',
                     handlers=[
                         logging.StreamHandler(sys.stdout),  # Outputs to console
@@ -19,24 +20,55 @@ logging.basicConfig(level=logging.INFO,
                     ])
 logger = logging.getLogger(__name__)
 
-# Log system information
-def log_system_info():
+# Comprehensive network information logging
+def log_comprehensive_network_info():
     try:
-        # Get local IP addresses
-        local_ips = socket.gethostbyname_ex(socket.gethostname())[2]
-        logger.info(f"Local IP Addresses: {local_ips}")
+        logger.info("=== COMPREHENSIVE NETWORK INFORMATION ===")
         
-        # Log environment variables
+        # Get all network interfaces
+        interfaces = netifaces.interfaces()
+        logger.info(f"Network Interfaces: {interfaces}")
+        
+        for interface in interfaces:
+            try:
+                # Get IP addresses for each interface
+                addrs = netifaces.ifaddresses(interface)
+                
+                # IPv4 addresses
+                if netifaces.AF_INET in addrs:
+                    ipv4_info = addrs[netifaces.AF_INET]
+                    logger.info(f"Interface {interface} IPv4: {ipv4_info}")
+                
+                # IPv6 addresses
+                if netifaces.AF_INET6 in addrs:
+                    ipv6_info = addrs[netifaces.AF_INET6]
+                    logger.info(f"Interface {interface} IPv6: {ipv6_info}")
+            except Exception as iface_error:
+                logger.error(f"Error getting details for interface {interface}: {iface_error}")
+        
+        # Additional system network information
+        logger.info(f"Hostname: {socket.gethostname()}")
+        
+        try:
+            # Try to get external IP
+            external_ip = requests.get('https://api.ipify.org').text
+            logger.info(f"External IP: {external_ip}")
+        except Exception as ip_error:
+            logger.error(f"Could not retrieve external IP: {ip_error}")
+        
+        # Environment variables related to networking
         logger.info(f"PORT environment variable: {os.getenv('PORT', 'Not set')}")
         logger.info(f"Current working directory: {os.getcwd()}")
+        
+        logger.info("=== END NETWORK INFORMATION ===")
     except Exception as e:
-        logger.error(f"Error logging system info: {e}")
+        logger.error(f"Comprehensive network logging failed: {e}")
 
 # Load environment variables
 load_dotenv()
 
 # Log system info early
-log_system_info()
+log_comprehensive_network_info()
 
 app = Flask(__name__)
 
@@ -261,7 +293,7 @@ def upload_image():
 
 if __name__ == '__main__':
     # Determine the port
-    port = int(os.getenv('PORT', 5000))
+    port = int(os.getenv('PORT', 10000))
     
     # Log port information
     logger.info(f"Attempting to start server on port {port}")
@@ -269,10 +301,12 @@ if __name__ == '__main__':
     try:
         # Try to create a socket to check port availability
         test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         test_socket.bind(('0.0.0.0', port))
         test_socket.close()
         
         # If socket creation succeeds, run the app
+        logger.info(f"Starting Flask development server on 0.0.0.0:{port}")
         app.run(host='0.0.0.0', port=port, debug=True)
     except Exception as e:
         logger.critical(f"Failed to start server on port {port}: {e}")

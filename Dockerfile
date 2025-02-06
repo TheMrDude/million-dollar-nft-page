@@ -8,6 +8,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     net-tools \
     procps \
+    iproute2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the current directory contents into the container at /app
@@ -16,7 +17,8 @@ COPY . /app
 # Create uploads and database directories
 RUN mkdir -p /tmp/uploads /tmp/database
 
-# Install any needed packages specified in requirements.txt
+# Upgrade pip and install requirements
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install gunicorn
@@ -31,5 +33,5 @@ ENV UPLOAD_FOLDER=/tmp/uploads
 ENV DATABASE_PATH=/tmp/database/payment_tracker.db
 ENV FLASK_DEBUG=1
 
-# Use gunicorn to run the application
-CMD gunicorn --bind 0.0.0.0:${PORT:-10000} --chdir src app:app
+# Use gunicorn to run the application with multiple workers
+CMD gunicorn --workers 4 --threads 2 --bind 0.0.0.0:${PORT:-10000} --chdir src app:app
