@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     gcc \
     python3-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the current directory contents into the container at /app
@@ -37,5 +38,21 @@ ENV UPLOAD_FOLDER=/tmp/uploads
 ENV DATABASE_PATH=/tmp/database/payment_tracker.db
 ENV FLASK_DEBUG=1
 
-# Use gunicorn to run the application with multiple workers
-CMD gunicorn --workers 4 --threads 2 --bind 0.0.0.0:${PORT:-10000} --chdir src app:app
+# Create a startup script with more robust error checking
+RUN echo '#!/bin/bash\n\
+echo "Starting application..."\n\
+echo "Current Directory: $(pwd)"\n\
+echo "Listing files:"\n\
+ls -la src\n\
+echo "Python version:"\n\
+python --version\n\
+echo "Checking app.py exists:"\n\
+test -f src/app.py || (echo "ERROR: app.py not found" && exit 1)\n\
+echo "Checking requirements installed:"\n\
+pip list\n\
+echo "Starting Gunicorn..."\n\
+exec gunicorn --workers 4 --threads 2 --bind 0.0.0.0:${PORT:-10000} --chdir src app:app\n\
+' > /start.sh && chmod +x /start.sh
+
+# Use the startup script
+CMD ["/start.sh"]

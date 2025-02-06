@@ -5,18 +5,21 @@ import json
 import logging
 import sys
 import socket
+import traceback
 from flask import Flask, render_template, request, jsonify
 from PIL import Image
 from dotenv import load_dotenv
 import sqlite3
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG, 
-                    format='%(asctime)s - %(levelname)s - %(message)s',
-                    handlers=[
-                        logging.StreamHandler(sys.stdout),  # Outputs to console
-                        logging.FileHandler('/tmp/app.log')  # Outputs to file
-                    ])
+logging.basicConfig(
+    level=logging.DEBUG, 
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),  # Outputs to console
+        logging.FileHandler('/tmp/app.log', mode='w')  # Outputs to file, overwrite each time
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # Comprehensive network information logging
@@ -49,11 +52,60 @@ def log_comprehensive_network_info():
     except Exception as e:
         logger.error(f"Comprehensive network logging failed: {e}")
 
+# Comprehensive startup checks and logging
+def perform_startup_checks():
+    """Perform comprehensive checks during application startup."""
+    try:
+        # Check environment variables
+        required_env_vars = [
+            'UPLOAD_FOLDER', 
+            'DATABASE_PATH', 
+            'MAX_IMAGES', 
+            'PRICE_PER_IMAGE'
+        ]
+        
+        for var in required_env_vars:
+            value = os.getenv(var)
+            if value is None:
+                logger.warning(f"Environment variable {var} is not set!")
+        
+        # Check upload folder
+        upload_folder = os.getenv('UPLOAD_FOLDER', '/tmp/uploads')
+        os.makedirs(upload_folder, exist_ok=True)
+        if not os.access(upload_folder, os.W_OK):
+            logger.error(f"Cannot write to upload folder: {upload_folder}")
+        
+        # Check database path
+        database_path = os.getenv('DATABASE_PATH', '/tmp/database/payment_tracker.db')
+        database_dir = os.path.dirname(database_path)
+        os.makedirs(database_dir, exist_ok=True)
+        
+        # Attempt database connection
+        try:
+            conn = sqlite3.connect(database_path)
+            conn.close()
+            logger.info(f"Successfully connected to database at {database_path}")
+        except Exception as db_error:
+            logger.error(f"Database connection failed: {db_error}")
+        
+        # Log system information
+        logger.info(f"Python Version: {sys.version}")
+        logger.info(f"Current Working Directory: {os.getcwd()}")
+        logger.info(f"System Path: {sys.path}")
+        
+    except Exception as startup_error:
+        logger.critical(f"Startup check failed: {startup_error}")
+        logger.critical(traceback.format_exc())
+        sys.exit(1)
+
 # Load environment variables
 load_dotenv()
 
 # Log system info early
 log_comprehensive_network_info()
+
+# Perform startup checks
+perform_startup_checks()
 
 app = Flask(__name__)
 
@@ -276,6 +328,28 @@ def upload_image():
         logger.error(f"Upload route failed: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
+# Add a simple health check route
+@app.route('/health')
+def health_check():
+    """Simple health check endpoint."""
+    return jsonify({
+        'status': 'healthy',
+        'max_images': MAX_IMAGES,
+        'price_per_image': PRICE_PER_IMAGE
+    }), 200
+
+# Error handler for 500 errors
+@app.errorhandler(500)
+def handle_500(error):
+    """Custom error handler for server errors."""
+    logger.error(f"Server Error: {error}")
+    logger.error(traceback.format_exc())
+    return jsonify({
+        'error': 'Internal Server Error',
+        'message': str(error)
+    }), 500
+
+# Modify the main block to be more robust
 if __name__ == '__main__':
     # Determine the port
     port = int(os.getenv('PORT', 10000))
@@ -295,4 +369,5 @@ if __name__ == '__main__':
         app.run(host='0.0.0.0', port=port, debug=True)
     except Exception as e:
         logger.critical(f"Failed to start server on port {port}: {e}")
+        logger.critical(traceback.format_exc())
         sys.exit(1)
