@@ -32,19 +32,43 @@ ADMIN_WALLET_ADDRESS = os.getenv('ADMIN_WALLET_ADDRESS')
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', '/tmp/uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Robust database path resolution
-DB_DIRECTORY = '/tmp/database'
-os.makedirs(DB_DIRECTORY, exist_ok=True)
-DB_PATH = os.path.join(DB_DIRECTORY, 'payment_tracker.db')
+# Robust database path resolution with multiple fallback options
+def get_writable_db_path():
+    # Potential database paths in order of preference
+    potential_paths = [
+        '/tmp/database/payment_tracker.db',  # First choice
+        '/app/payment_tracker.db',           # Render app directory
+        os.path.join(os.getcwd(), 'payment_tracker.db'),  # Current working directory
+        '/tmp/payment_tracker.db'            # Last resort temp directory
+    ]
+    
+    for path in potential_paths:
+        try:
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            
+            # Test database connection
+            conn = sqlite3.connect(path)
+            conn.close()
+            
+            logger.info(f"Using database path: {path}")
+            return path
+        except Exception as e:
+            logger.warning(f"Cannot use path {path}: {e}")
+    
+    # If all paths fail, raise a critical error
+    error_msg = "Unable to find a writable database path"
+    logger.critical(error_msg)
+    raise RuntimeError(error_msg)
+
+# Get the best available database path
+DB_PATH = get_writable_db_path()
 
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
 
 # Initialize SQLite database for tracking payments
 def init_db():
     try:
-        # Ensure the directory exists and is writable
-        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-        
         # Open connection 
         conn = sqlite3.connect(DB_PATH)
         
@@ -73,8 +97,6 @@ def init_db():
         # Detailed error logging
         logger.error(f"Database initialization failed: {e}")
         logger.error(f"DB Path: {DB_PATH}")
-        logger.error(f"DB Directory Exists: {os.path.exists(os.path.dirname(DB_PATH))}")
-        logger.error(f"DB Directory Writable: {os.access(os.path.dirname(DB_PATH), os.W_OK)}")
         raise
 
 # Call init_db during app startup
