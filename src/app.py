@@ -1,36 +1,16 @@
 import os
 import sys
-import uuid
-import requests
-import json
 import logging
-import socket
-import traceback
-import signal
-from flask import Flask, render_template, request, jsonify
-from PIL import Image
-from dotenv import load_dotenv
 import sqlite3
+from flask import Flask, jsonify
+from dotenv import load_dotenv
 
-# Configure logging
+# Minimal logging configuration
 logging.basicConfig(
-    level=logging.WARNING, 
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('/tmp/app.log', mode='w')
-    ]
+    level=logging.ERROR, 
+    format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-# Signal handler for graceful shutdown
-def handle_sigterm(signum, frame):
-    """Handle SIGTERM signal for graceful shutdown."""
-    logger.warning(f"Received signal {signum}. Performing cleanup...")
-    sys.exit(0)
-
-# Register signal handler
-signal.signal(signal.SIGTERM, handle_sigterm)
 
 # Load environment variables
 load_dotenv()
@@ -41,8 +21,6 @@ app = Flask(__name__)
 # Configuration
 MAX_IMAGES = int(os.getenv('MAX_IMAGES', 1000000))
 PRICE_PER_IMAGE = float(os.getenv('PRICE_PER_IMAGE', 5.00))
-USDC_WALLET_ADDRESS = os.getenv('USDC_WALLET_ADDRESS')
-ADMIN_WALLET_ADDRESS = os.getenv('ADMIN_WALLET_ADDRESS')
 
 # Robust upload folder path resolution
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', '/tmp/uploads')
@@ -63,15 +41,15 @@ def get_writable_db_path():
             conn = sqlite3.connect(path)
             conn.close()
             return path
-        except Exception as e:
-            logger.warning(f"Cannot use path {path}: {e}")
+        except Exception:
+            continue
     
     raise RuntimeError("No writable database path found")
 
 # Get the best available database path
 DB_PATH = get_writable_db_path()
 
-# Minimal routes for health and basic functionality
+# Minimal routes
 @app.route('/')
 def index():
     """Basic index route."""
@@ -104,7 +82,6 @@ if __name__ == '__main__':
     port = int(os.getenv('PORT', 10000))
     
     try:
-        logger.warning(f"Starting server on port {port}")
         app.run(host='0.0.0.0', port=port, debug=False)
     except Exception as e:
         logger.error(f"Failed to start server: {e}")
