@@ -7,6 +7,7 @@ from PIL import Image
 from dotenv import load_dotenv
 import sqlite3
 
+# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
@@ -16,12 +17,19 @@ MAX_IMAGES = int(os.getenv('MAX_IMAGES', 1000000))
 PRICE_PER_IMAGE = float(os.getenv('PRICE_PER_IMAGE', 5.00))
 USDC_WALLET_ADDRESS = os.getenv('USDC_WALLET_ADDRESS')
 ADMIN_WALLET_ADDRESS = os.getenv('ADMIN_WALLET_ADDRESS')
-UPLOAD_FOLDER = os.path.join('src', 'static', 'uploads')
+
+# Dynamic upload folder with fallback
+UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', os.path.join('/tmp', 'uploads'))
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Database path
+DB_PATH = os.getenv('DATABASE_PATH', '/tmp/payment_tracker.db')
+
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
 
 # Initialize SQLite database for tracking payments
 def init_db():
-    conn = sqlite3.connect('payment_tracker.db')
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''
         CREATE TABLE IF NOT EXISTS payments (
@@ -37,22 +45,15 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Call init_db during app startup
 init_db()
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def verify_payment(tx_hash, wallet_address):
-    # TODO: Implement actual blockchain transaction verification
-    # This is a placeholder. In a real-world scenario, you'd:
-    # 1. Use a blockchain explorer API (like Etherscan for Ethereum)
-    # 2. Verify the transaction details:
-    #    - Correct recipient wallet
-    #    - Correct USDC amount
-    #    - Transaction is confirmed
-    
-    # Simulated verification for demonstration
-    conn = sqlite3.connect('payment_tracker.db')
+    # Placeholder for blockchain transaction verification
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     
     # Check if transaction is already processed
@@ -74,7 +75,15 @@ def verify_payment(tx_hash, wallet_address):
 
 @app.route('/')
 def index():
-    uploaded_images = os.listdir(UPLOAD_FOLDER)
+    # Ensure upload directory exists
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    
+    # Safely list uploaded images
+    try:
+        uploaded_images = os.listdir(UPLOAD_FOLDER)
+    except Exception:
+        uploaded_images = []
+    
     return render_template('index.html', 
                            images=uploaded_images, 
                            max_images=MAX_IMAGES,
@@ -118,7 +127,7 @@ def upload_image():
             return jsonify({'error': 'Payment not verified'}), 400
         
         # Verify payment
-        conn = sqlite3.connect('payment_tracker.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('SELECT * FROM payments WHERE tx_hash = ? AND status = "verified"', (tx_hash,))
         payment_record = c.fetchone()
@@ -140,7 +149,7 @@ def upload_image():
             img.save(filepath)
         
         # Update payment record with image filename
-        conn = sqlite3.connect('payment_tracker.db')
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('UPDATE payments SET image_filename = ? WHERE tx_hash = ?', (filename, tx_hash))
         conn.commit()
@@ -151,5 +160,4 @@ def upload_image():
     return jsonify({'error': 'File type not allowed'}), 400
 
 if __name__ == '__main__':
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
