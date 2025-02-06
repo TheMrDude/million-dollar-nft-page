@@ -5,7 +5,6 @@ import json
 import logging
 import sys
 import socket
-import netifaces
 from flask import Flask, render_template, request, jsonify
 from PIL import Image
 from dotenv import load_dotenv
@@ -25,26 +24,12 @@ def log_comprehensive_network_info():
     try:
         logger.info("=== COMPREHENSIVE NETWORK INFORMATION ===")
         
-        # Get all network interfaces
-        interfaces = netifaces.interfaces()
-        logger.info(f"Network Interfaces: {interfaces}")
-        
-        for interface in interfaces:
-            try:
-                # Get IP addresses for each interface
-                addrs = netifaces.ifaddresses(interface)
-                
-                # IPv4 addresses
-                if netifaces.AF_INET in addrs:
-                    ipv4_info = addrs[netifaces.AF_INET]
-                    logger.info(f"Interface {interface} IPv4: {ipv4_info}")
-                
-                # IPv6 addresses
-                if netifaces.AF_INET6 in addrs:
-                    ipv6_info = addrs[netifaces.AF_INET6]
-                    logger.info(f"Interface {interface} IPv6: {ipv6_info}")
-            except Exception as iface_error:
-                logger.error(f"Error getting details for interface {interface}: {iface_error}")
+        # Get local IP addresses
+        try:
+            local_ips = socket.gethostbyname_ex(socket.gethostname())[2]
+            logger.info(f"Local IP Addresses: {local_ips}")
+        except Exception as ip_error:
+            logger.error(f"Could not retrieve local IP addresses: {ip_error}")
         
         # Additional system network information
         logger.info(f"Hostname: {socket.gethostname()}")

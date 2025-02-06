@@ -4,11 +4,14 @@ FROM python:3.11-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies for debugging
+# Install system dependencies for debugging and building
 RUN apt-get update && apt-get install -y \
     net-tools \
     procps \
     iproute2 \
+    build-essential \
+    gcc \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the current directory contents into the container at /app
@@ -19,6 +22,7 @@ RUN mkdir -p /tmp/uploads /tmp/database
 
 # Upgrade pip and install requirements
 RUN pip install --upgrade pip
+RUN pip install --no-cache-dir wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install gunicorn
