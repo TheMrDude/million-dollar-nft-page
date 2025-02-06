@@ -18,8 +18,8 @@ PRICE_PER_IMAGE = float(os.getenv('PRICE_PER_IMAGE', 5.00))
 USDC_WALLET_ADDRESS = os.getenv('USDC_WALLET_ADDRESS')
 ADMIN_WALLET_ADDRESS = os.getenv('ADMIN_WALLET_ADDRESS')
 
-# Dynamic upload folder with fallback
-UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', os.path.join('/tmp', 'uploads'))
+# Robust upload folder path resolution
+UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', '/tmp/uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Database path
