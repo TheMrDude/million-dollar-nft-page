@@ -6,6 +6,8 @@ services:
     plan: free
     branch: main
     healthCheckPath: /
+    dockerfilePath: ./Dockerfile
+    dockerCommand: gunicorn --workers 4 --threads 2 --bind 0.0.0.0:${PORT} --chdir src app:app
     envVars:
       - key: MAX_IMAGES
         value: 1000000
@@ -15,3 +17,12 @@ services:
         sync: false
       - key: ADMIN_WALLET_ADDRESS
         sync: false
+      - key: PORT
+        fromRuntime: true
+      - key: UPLOAD_FOLDER
+        value: /tmp/uploads
+      - key: DATABASE_PATH
+        value: /tmp/database/payment_tracker.db
+      - key: FLASK_DEBUG
+        value: 1
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
