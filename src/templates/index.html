@@ -141,6 +141,23 @@
     </footer>
 
     <script>
+        // Add a debug div to show messages on the page
+        const debugDiv = document.createElement('div');
+        debugDiv.id = 'debug-messages';
+        debugDiv.style.position = 'fixed';
+        debugDiv.style.bottom = '10px';
+        debugDiv.style.left = '10px';
+        debugDiv.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        debugDiv.style.color = 'white';
+        debugDiv.style.padding = '10px';
+        debugDiv.style.zIndex = '1000';
+        document.body.appendChild(debugDiv);
+
+        function debugLog(message) {
+            console.log(message);
+            debugDiv.innerHTML += `<div>${message}</div>`;
+        }
+
         const uploadButton = document.getElementById('uploadButton');
         const fileInput = document.getElementById('nftUpload');
         const uploadStatus = document.getElementById('uploadStatus');
@@ -158,26 +175,46 @@
             });
         }
 
-        console.log('Upload Button:', uploadButton);
-        console.log('File Input:', fileInput);
+        // Verify elements exist
+        debugLog(`Upload Button: ${uploadButton ? 'Found' : 'Not Found'}`);
+        debugLog(`File Input: ${fileInput ? 'Found' : 'Not Found'}`);
 
-        uploadButton.addEventListener('click', () => {
-            console.log('Upload button clicked');
-            fileInput.click();
-        });
+        // Add click event with error handling
+        if (uploadButton) {
+            uploadButton.addEventListener('click', (event) => {
+                debugLog('Upload button clicked');
+                try {
+                    fileInput.click();
+                } catch (error) {
+                    debugLog(`Error clicking file input: ${error.message}`);
+                }
+            });
+        } else {
+            debugLog('Upload button not found in the document');
+        }
 
-        fileInput.addEventListener('change', async (event) => {
-            console.log('File input changed');
-            selectedFile = event.target.files[0];
-            if (!selectedFile) {
-                console.log('No file selected');
-                return;
-            }
+        // Add change event with error handling
+        if (fileInput) {
+            fileInput.addEventListener('change', async (event) => {
+                debugLog('File input changed');
+                try {
+                    selectedFile = event.target.files[0];
+                    if (!selectedFile) {
+                        debugLog('No file selected');
+                        return;
+                    }
 
-            console.log('Selected file:', selectedFile);
+                    debugLog(`Selected file: ${selectedFile.name}`);
 
-            paymentModal.style.display = 'flex';
-        });
+                    // Open payment modal
+                    paymentModal.style.display = 'flex';
+                } catch (error) {
+                    debugLog(`Error in file selection: ${error.message}`);
+                }
+            });
+        } else {
+            debugLog('File input not found in the document');
+        }
 
         verifyPaymentButton.addEventListener('click', async () => {
             const txHash = txHashInput.value.trim();
@@ -188,6 +225,7 @@
             }
 
             try {
+                // Verify payment
                 const verifyResponse = await fetch('/verify-payment', {
                     method: 'POST',
                     headers: {
@@ -202,6 +240,7 @@
                 const verifyResult = await verifyResponse.json();
 
                 if (verifyResult.ready_to_upload) {
+                    // Payment verified, proceed with upload
                     const formData = new FormData();
                     formData.append('file', selectedFile);
                     formData.append('tx_hash', txHash);
