@@ -1,20 +1,22 @@
-# Use a minimal Python runtime
-FROM python:3.11-alpine3.18
+# Use a Python runtime
+FROM python:3.11-slim
 
-# Install minimal system dependencies
-RUN apk add --no-cache build-base
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
 
-# Copy only essential files
+# Copy requirements and source code
 COPY requirements.txt .
 COPY src ./src
 
 # Create necessary directories
 RUN mkdir -p /tmp/uploads /tmp/database
 
-# Install dependencies with minimal overhead
+# Install dependencies
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir gunicorn
@@ -27,15 +29,15 @@ ENV PYTHONUNBUFFERED=1
 ENV UPLOAD_FOLDER=/tmp/uploads
 ENV DATABASE_PATH=/tmp/database/payment_tracker.db
 
-# Startup script with absolute minimal configuration
-RUN echo '#!/bin/sh\n\
+# Startup script
+RUN echo '#!/bin/bash\n\
 exec gunicorn \\\n\
-    --workers 1 \\\n\
+    --workers 2 \\\n\
     --threads 2 \\\n\
-    --timeout 20 \\\n\
+    --timeout 60 \\\n\
     --bind 0.0.0.0:${PORT:-10000} \\\n\
     --chdir src \\\n\
-    --log-level critical \\\n\
+    --log-level warning \\\n\
     app:app\n\
 ' > /start.sh && chmod +x /start.sh
 
