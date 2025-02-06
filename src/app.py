@@ -6,6 +6,8 @@ import logging
 import sys
 import socket
 import traceback
+import psutil
+import signal
 from flask import Flask, render_template, request, jsonify
 from PIL import Image
 from dotenv import load_dotenv
@@ -52,10 +54,46 @@ def log_comprehensive_network_info():
     except Exception as e:
         logger.error(f"Comprehensive network logging failed: {e}")
 
+# Memory and resource monitoring
+def log_system_resources():
+    """Log current system resource usage."""
+    try:
+        # Process memory info
+        process = psutil.Process(os.getpid())
+        mem_info = process.memory_info()
+        
+        logger.info(f"Memory Usage:")
+        logger.info(f"  RSS: {mem_info.rss / (1024 * 1024):.2f} MB")
+        logger.info(f"  VMS: {mem_info.vms / (1024 * 1024):.2f} MB")
+        
+        # System-wide memory
+        sys_mem = psutil.virtual_memory()
+        logger.info(f"System Memory:")
+        logger.info(f"  Total: {sys_mem.total / (1024 * 1024):.2f} MB")
+        logger.info(f"  Available: {sys_mem.available / (1024 * 1024):.2f} MB")
+        logger.info(f"  Used: {sys_mem.used / (1024 * 1024):.2f} MB")
+        logger.info(f"  Percent: {sys_mem.percent}%")
+        
+    except Exception as e:
+        logger.error(f"Failed to log system resources: {e}")
+
+# Signal handler for graceful shutdown
+def handle_sigterm(signum, frame):
+    """Handle SIGTERM signal for graceful shutdown."""
+    logger.warning(f"Received signal {signum}. Performing cleanup...")
+    log_system_resources()
+    sys.exit(0)
+
+# Register signal handler
+signal.signal(signal.SIGTERM, handle_sigterm)
+
 # Comprehensive startup checks and logging
 def perform_startup_checks():
     """Perform comprehensive checks during application startup."""
     try:
+        # Log system resources at startup
+        log_system_resources()
+        
         # Check environment variables
         required_env_vars = [
             'UPLOAD_FOLDER', 
@@ -337,6 +375,27 @@ def health_check():
         'max_images': MAX_IMAGES,
         'price_per_image': PRICE_PER_IMAGE
     }), 200
+
+# Add a resource monitoring route
+@app.route('/system-resources')
+def system_resources():
+    """Endpoint to check current system resources."""
+    try:
+        process = psutil.Process(os.getpid())
+        mem_info = process.memory_info()
+        sys_mem = psutil.virtual_memory()
+        
+        return jsonify({
+            'process_memory_rss_mb': mem_info.rss / (1024 * 1024),
+            'process_memory_vms_mb': mem_info.vms / (1024 * 1024),
+            'system_memory_total_mb': sys_mem.total / (1024 * 1024),
+            'system_memory_available_mb': sys_mem.available / (1024 * 1024),
+            'system_memory_used_mb': sys_mem.used / (1024 * 1024),
+            'system_memory_percent': sys_mem.percent
+        }), 200
+    except Exception as e:
+        logger.error(f"Failed to retrieve system resources: {e}")
+        return jsonify({'error': 'Could not retrieve system resources'}), 500
 
 # Error handler for 500 errors
 @app.errorhandler(500)

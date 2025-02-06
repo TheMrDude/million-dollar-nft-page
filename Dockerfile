@@ -26,8 +26,8 @@ RUN pip install --upgrade pip
 RUN pip install --no-cache-dir wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install gunicorn
-RUN pip install gunicorn
+# Install gunicorn with additional performance options
+RUN pip install 'gunicorn[gevent]'
 
 # Expose port (Render will replace this with the dynamic port)
 EXPOSE 10000
@@ -37,9 +37,12 @@ ENV PYTHONUNBUFFERED=1
 ENV UPLOAD_FOLDER=/tmp/uploads
 ENV DATABASE_PATH=/tmp/database/payment_tracker.db
 ENV FLASK_DEBUG=1
+ENV GUNICORN_CMD_ARGS="--max-requests 1000 --max-requests-jitter 50"
 
-# Create a startup script with more robust error checking
+# Create a startup script with more robust error checking and memory limits
 RUN echo '#!/bin/bash\n\
+set -e\n\
+ulimit -v 512000  # Set virtual memory limit to 512MB\n\
 echo "Starting application..."\n\
 echo "Current Directory: $(pwd)"\n\
 echo "Listing files:"\n\
@@ -50,8 +53,17 @@ echo "Checking app.py exists:"\n\
 test -f src/app.py || (echo "ERROR: app.py not found" && exit 1)\n\
 echo "Checking requirements installed:"\n\
 pip list\n\
-echo "Starting Gunicorn..."\n\
-exec gunicorn --workers 4 --threads 2 --bind 0.0.0.0:${PORT:-10000} --chdir src app:app\n\
+echo "Starting Gunicorn with gevent workers..."\n\
+exec gunicorn \\\n\
+    --worker-class gevent \\\n\
+    --workers 2 \\\n\
+    --threads 4 \\\n\
+    --timeout 120 \\\n\
+    --bind 0.0.0.0:${PORT:-10000} \\\n\
+    --chdir src \\\n\
+    --log-level debug \\\n\
+    --capture-output \\\n\
+    app:app\n\
 ' > /start.sh && chmod +x /start.sh
 
 # Use the startup script
