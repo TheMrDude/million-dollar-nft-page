@@ -45,13 +45,8 @@ def init_db():
         # Ensure the directory exists and is writable
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
         
-        # Open connection with explicit URI and create flag
-        conn = sqlite3.connect(f'file:{DB_PATH}?mode=create', 
-                               uri=True, 
-                               isolation_level=None)
-        
-        # Set journal mode to improve performance and reliability
-        conn.execute('PRAGMA journal_mode=WAL')
+        # Open connection 
+        conn = sqlite3.connect(DB_PATH)
         
         # Create table with error handling
         c = conn.cursor()
@@ -91,8 +86,8 @@ def allowed_file(filename):
 def verify_payment(tx_hash, wallet_address):
     # Placeholder for blockchain transaction verification
     try:
-        # Open connection with explicit URI
-        conn = sqlite3.connect(f'file:{DB_PATH}', uri=True)
+        # Open connection 
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         
         # Check if transaction is already processed
