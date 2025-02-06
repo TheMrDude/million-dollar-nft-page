@@ -47,13 +47,23 @@
     </style>
 </head>
 <body class="container mx-auto px-4 py-8">
-    <header class="text-center mb-12">
+    <header class="relative mb-12">
+        <div class="absolute top-0 right-0 flex space-x-4">
+            <input type="file" id="nftUpload" accept=".jpg,.jpeg,.png" class="hidden">
+            <button 
+                id="uploadButton" 
+                class="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold py-2 px-4 rounded-full hover:from-blue-600 hover:to-purple-700 transition text-sm"
+            >
+                Upload NFT
+            </button>
+        </div>
         <h1 class="text-5xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600">
             The Million Dollar NFT Page
         </h1>
         <p class="text-xl text-gray-400 max-w-2xl mx-auto">
             A groundbreaking digital canvas. Upload your NFT for ${{ price_per_image }} in USDC.
         </p>
+        <div id="uploadStatus" class="mt-4 text-gray-400 text-center"></div>
     </header>
 
     <main>
@@ -71,17 +81,6 @@
                 </div>
                 {% endfor %}
             </div>
-        </section>
-
-        <section class="text-center">
-            <input type="file" id="nftUpload" accept=".jpg,.jpeg,.png" class="hidden">
-            <button 
-                id="uploadButton" 
-                class="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold py-3 px-6 rounded-full hover:from-blue-600 hover:to-purple-700 transition"
-            >
-                Upload Your NFT for ${{ price_per_image }}
-            </button>
-            <div id="uploadStatus" class="mt-4 text-gray-400"></div>
         </section>
     </main>
 
@@ -199,34 +198,33 @@
                     const formData = new FormData();
                     formData.append('file', selectedFile);
                     formData.append('tx_hash', txHash);
-                    formData.append('wallet_address', '{{ usdc_wallet_address }}');
-
+                    
                     const uploadResponse = await fetch('/upload', {
                         method: 'POST',
                         body: formData
                     });
 
-                    const result = await uploadResponse.json();
-                    uploadStatus.textContent = result.success 
-                        ? 'NFT uploaded successfully!' 
-                        : `Upload failed: ${result.error}`;
+                    const uploadResult = await uploadResponse.json();
 
-                    // Reload page to show new image
-                    if (result.success) {
-                        setTimeout(() => window.location.reload(), 2000);
+                    if (uploadResult.success) {
+                        uploadStatus.textContent = 'Upload successful!';
+                        paymentModal.style.display = 'none';
+                        location.reload();
+                    } else {
+                        uploadStatus.textContent = uploadResult.error || 'Upload failed';
                     }
-
-                    paymentModal.style.display = 'none';
                 } else {
-                    uploadStatus.textContent = 'Payment verification failed';
+                    uploadStatus.textContent = verifyResult.message || 'Payment verification failed';
                 }
             } catch (error) {
-                uploadStatus.textContent = `Error: ${error.message}`;
+                console.error('Error:', error);
+                uploadStatus.textContent = 'An error occurred';
             }
         });
 
         cancelPaymentButton.addEventListener('click', () => {
             paymentModal.style.display = 'none';
+            fileInput.value = '';
             selectedFile = null;
         });
     </script>
