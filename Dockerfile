@@ -1,68 +1,67 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim
+# Use a minimal Python runtime
+FROM python:3.11-alpine
+
+# Install system dependencies
+RUN apk add --no-cache \
+    build-base \
+    linux-headers \
+    curl \
+    procps
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies for debugging and building
-RUN apt-get update && apt-get install -y \
-    net-tools \
-    procps \
-    iproute2 \
-    build-essential \
-    gcc \
-    python3-dev \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Copy only necessary files to minimize image size
+COPY requirements.txt .
+COPY src ./src
 
-# Copy the current directory contents into the container at /app
-COPY . /app
-
-# Create uploads and database directories
+# Create necessary directories
 RUN mkdir -p /tmp/uploads /tmp/database
 
-# Upgrade pip and install requirements
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir wheel
-RUN pip install --no-cache-dir -r requirements.txt
+# Upgrade pip and install requirements with minimal dependencies
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir 'gunicorn[gevent]'
 
-# Install gunicorn with additional performance options
-RUN pip install 'gunicorn[gevent]'
-
-# Expose port (Render will replace this with the dynamic port)
+# Expose port
 EXPOSE 10000
 
-# Define environment variables
+# Environment variables for resource management
 ENV PYTHONUNBUFFERED=1
 ENV UPLOAD_FOLDER=/tmp/uploads
 ENV DATABASE_PATH=/tmp/database/payment_tracker.db
-ENV FLASK_DEBUG=1
-ENV GUNICORN_CMD_ARGS="--max-requests 1000 --max-requests-jitter 50"
+ENV FLASK_DEBUG=0
+ENV GUNICORN_CMD_ARGS="--max-requests 250 --max-requests-jitter 50"
 
-# Create a startup script with more robust error checking and memory limits
-RUN echo '#!/bin/bash\n\
+# Create a comprehensive startup script
+RUN echo '#!/bin/sh\n\
 set -e\n\
-ulimit -v 512000  # Set virtual memory limit to 512MB\n\
-echo "Starting application..."\n\
-echo "Current Directory: $(pwd)"\n\
-echo "Listing files:"\n\
-ls -la src\n\
-echo "Python version:"\n\
+\n\
+# Print system information\n\
+echo "System Information:"\n\
+echo "----------------"\n\
+free -h\n\
+df -h\n\
+\n\
+# Print Python and package versions\n\
+echo "\nPython and Package Versions:"\n\
+echo "------------------------"\n\
 python --version\n\
-echo "Checking app.py exists:"\n\
-test -f src/app.py || (echo "ERROR: app.py not found" && exit 1)\n\
-echo "Checking requirements installed:"\n\
 pip list\n\
-echo "Starting Gunicorn with gevent workers..."\n\
+\n\
+# Start Gunicorn with strict resource limits\n\
+echo "\nStarting Gunicorn..."\n\
 exec gunicorn \\\n\
     --worker-class gevent \\\n\
-    --workers 2 \\\n\
-    --threads 4 \\\n\
-    --timeout 120 \\\n\
+    --workers 1 \\\n\
+    --threads 2 \\\n\
+    --timeout 60 \\\n\
     --bind 0.0.0.0:${PORT:-10000} \\\n\
     --chdir src \\\n\
-    --log-level debug \\\n\
-    --capture-output \\\n\
+    --log-level warning \\\n\
+    --limit-request-line 4094 \\\n\
+    --limit-request-fields 100 \\\n\
+    --limit-request-field-size 8190 \\\n\
     app:app\n\
 ' > /start.sh && chmod +x /start.sh
 
