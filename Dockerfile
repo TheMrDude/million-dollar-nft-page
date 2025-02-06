@@ -4,6 +4,12 @@ FROM python:3.11-slim
 # Set the working directory in the container
 WORKDIR /app
 
+# Install system dependencies for debugging
+RUN apt-get update && apt-get install -y \
+    net-tools \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy the current directory contents into the container at /app
 COPY . /app
 
@@ -23,6 +29,20 @@ EXPOSE 5000
 ENV PYTHONUNBUFFERED=1
 ENV UPLOAD_FOLDER=/tmp/uploads
 ENV DATABASE_PATH=/tmp/database/payment_tracker.db
+ENV FLASK_DEBUG=1
+
+# Add a startup script for debugging
+RUN echo '#!/bin/bash\n\
+echo "Container Environment:"\n\
+echo "PORT: $PORT"\n\
+echo "Current Directory: $(pwd)"\n\
+echo "Listing files:"\n\
+ls -la\n\
+echo "Network Interfaces:"\n\
+ifconfig\n\
+echo "Starting Gunicorn..."\n\
+gunicorn --bind 0.0.0.0:${PORT:-5000} --chdir src app:app\n\
+' > /start.sh && chmod +x /start.sh
 
 # Use shell form to allow environment variable expansion
-CMD gunicorn --bind 0.0.0.0:${PORT:-5000} --chdir src app:app
+CMD ["/start.sh"]
