@@ -5,12 +5,9 @@ import sqlite3
 from flask import Flask, jsonify
 from dotenv import load_dotenv
 
-# Minimal logging configuration
-logging.basicConfig(
-    level=logging.ERROR, 
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Disable all logging
+logging.getLogger().addHandler(logging.NullHandler())
+logging.getLogger().setLevel(logging.CRITICAL)
 
 # Load environment variables
 load_dotenv()
@@ -18,7 +15,7 @@ load_dotenv()
 # Create Flask app
 app = Flask(__name__)
 
-# Configuration
+# Configuration with minimal error handling
 MAX_IMAGES = int(os.getenv('MAX_IMAGES', 1000000))
 PRICE_PER_IMAGE = float(os.getenv('PRICE_PER_IMAGE', 5.00))
 
@@ -26,7 +23,7 @@ PRICE_PER_IMAGE = float(os.getenv('PRICE_PER_IMAGE', 5.00))
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', '/tmp/uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Robust database path resolution
+# Minimal database path resolution
 def get_writable_db_path():
     potential_paths = [
         '/tmp/database/payment_tracker.db',
@@ -44,7 +41,7 @@ def get_writable_db_path():
         except Exception:
             continue
     
-    raise RuntimeError("No writable database path found")
+    sys.exit(1)
 
 # Get the best available database path
 DB_PATH = get_writable_db_path()
@@ -67,22 +64,15 @@ def health_check():
         'database_path': DB_PATH
     }), 200
 
-# Error handler for 500 errors
+# Minimal error handler
 @app.errorhandler(500)
 def handle_500(error):
-    """Custom error handler for server errors."""
-    logger.error(f"Server Error: {error}")
+    """Minimal error handler."""
     return jsonify({
-        'error': 'Internal Server Error',
-        'message': str(error)
+        'error': 'Internal Server Error'
     }), 500
 
 # Main block for development server
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 10000))
-    
-    try:
-        app.run(host='0.0.0.0', port=port, debug=False)
-    except Exception as e:
-        logger.error(f"Failed to start server: {e}")
-        sys.exit(1)
+    app.run(host='0.0.0.0', port=port, debug=False)

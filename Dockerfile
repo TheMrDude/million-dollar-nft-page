@@ -2,9 +2,7 @@
 FROM python:3.11-alpine3.18
 
 # Install minimal system dependencies
-RUN apk add --no-cache \
-    build-base \
-    linux-headers
+RUN apk add --no-cache build-base
 
 # Set working directory
 WORKDIR /app
@@ -28,18 +26,16 @@ EXPOSE 10000
 ENV PYTHONUNBUFFERED=1
 ENV UPLOAD_FOLDER=/tmp/uploads
 ENV DATABASE_PATH=/tmp/database/payment_tracker.db
-ENV FLASK_DEBUG=0
 
-# Startup script with minimal configuration
+# Startup script with absolute minimal configuration
 RUN echo '#!/bin/sh\n\
-set -e\n\
 exec gunicorn \\\n\
     --workers 1 \\\n\
     --threads 2 \\\n\
-    --timeout 30 \\\n\
+    --timeout 20 \\\n\
     --bind 0.0.0.0:${PORT:-10000} \\\n\
     --chdir src \\\n\
-    --log-level error \\\n\
+    --log-level critical \\\n\
     app:app\n\
 ' > /start.sh && chmod +x /start.sh
 
