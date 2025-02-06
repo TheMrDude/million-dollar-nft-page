@@ -32,15 +32,28 @@ ADMIN_WALLET_ADDRESS = os.getenv('ADMIN_WALLET_ADDRESS')
 UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', '/tmp/uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Database path
-DB_PATH = os.getenv('DATABASE_PATH', '/tmp/payment_tracker.db')
+# Robust database path resolution
+DB_DIRECTORY = '/tmp/database'
+os.makedirs(DB_DIRECTORY, exist_ok=True)
+DB_PATH = os.path.join(DB_DIRECTORY, 'payment_tracker.db')
 
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
 
 # Initialize SQLite database for tracking payments
 def init_db():
     try:
-        conn = sqlite3.connect(DB_PATH)
+        # Ensure the directory exists and is writable
+        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+        
+        # Open connection with explicit URI and create flag
+        conn = sqlite3.connect(f'file:{DB_PATH}?mode=create', 
+                               uri=True, 
+                               isolation_level=None)
+        
+        # Set journal mode to improve performance and reliability
+        conn.execute('PRAGMA journal_mode=WAL')
+        
+        # Create table with error handling
         c = conn.cursor()
         c.execute('''
             CREATE TABLE IF NOT EXISTS payments (
@@ -53,11 +66,20 @@ def init_db():
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        
+        # Commit and close connection
         conn.commit()
         conn.close()
+        
+        # Log successful initialization
         logger.info(f"Database initialized at {DB_PATH}")
+        
     except Exception as e:
+        # Detailed error logging
         logger.error(f"Database initialization failed: {e}")
+        logger.error(f"DB Path: {DB_PATH}")
+        logger.error(f"DB Directory Exists: {os.path.exists(os.path.dirname(DB_PATH))}")
+        logger.error(f"DB Directory Writable: {os.access(os.path.dirname(DB_PATH), os.W_OK)}")
         raise
 
 # Call init_db during app startup
@@ -69,7 +91,8 @@ def allowed_file(filename):
 def verify_payment(tx_hash, wallet_address):
     # Placeholder for blockchain transaction verification
     try:
-        conn = sqlite3.connect(DB_PATH)
+        # Open connection with explicit URI
+        conn = sqlite3.connect(f'file:{DB_PATH}', uri=True)
         c = conn.cursor()
         
         # Check if transaction is already processed
