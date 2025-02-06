@@ -3,22 +3,40 @@ import uuid
 import requests
 import json
 import logging
+import sys
 from flask import Flask, render_template, request, jsonify
 from PIL import Image
 from dotenv import load_dotenv
 import sqlite3
+import socket
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
                     format='%(asctime)s - %(levelname)s - %(message)s',
                     handlers=[
-                        logging.StreamHandler(),  # Outputs to console
+                        logging.StreamHandler(sys.stdout),  # Outputs to console
                         logging.FileHandler('/tmp/app.log')  # Outputs to file
                     ])
 logger = logging.getLogger(__name__)
 
+# Log system information
+def log_system_info():
+    try:
+        # Get local IP addresses
+        local_ips = socket.gethostbyname_ex(socket.gethostname())[2]
+        logger.info(f"Local IP Addresses: {local_ips}")
+        
+        # Log environment variables
+        logger.info(f"PORT environment variable: {os.getenv('PORT', 'Not set')}")
+        logger.info(f"Current working directory: {os.getcwd()}")
+    except Exception as e:
+        logger.error(f"Error logging system info: {e}")
+
 # Load environment variables
 load_dotenv()
+
+# Log system info early
+log_system_info()
 
 app = Flask(__name__)
 
@@ -242,4 +260,20 @@ def upload_image():
         return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
+    # Determine the port
+    port = int(os.getenv('PORT', 5000))
+    
+    # Log port information
+    logger.info(f"Attempting to start server on port {port}")
+    
+    try:
+        # Try to create a socket to check port availability
+        test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        test_socket.bind(('0.0.0.0', port))
+        test_socket.close()
+        
+        # If socket creation succeeds, run the app
+        app.run(host='0.0.0.0', port=port, debug=True)
+    except Exception as e:
+        logger.critical(f"Failed to start server on port {port}: {e}")
+        sys.exit(1)
