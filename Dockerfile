@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy the current directory contents into the container at /app
 COPY . /app
 
-# Create uploads directory
-RUN mkdir -p /app/src/static/uploads
+# Create uploads and database directories
+RUN mkdir -p /tmp/uploads /tmp/database
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
@@ -16,11 +16,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Install gunicorn
 RUN pip install gunicorn
 
-# Make port 5000 available to the world outside this container
+# Expose port (Render will replace this with the dynamic port)
 EXPOSE 5000
 
-# Define environment variable to ensure Python output is sent directly to terminal
+# Define environment variables
 ENV PYTHONUNBUFFERED=1
+ENV UPLOAD_FOLDER=/tmp/uploads
+ENV DATABASE_PATH=/tmp/database/payment_tracker.db
 
-# Run the application using gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--chdir", "src", "app:app"]
+# Use shell form to allow environment variable expansion
+CMD gunicorn --bind 0.0.0.0:${PORT:-5000} --chdir src app:app
