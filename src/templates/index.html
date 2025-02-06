@@ -158,15 +158,24 @@
             });
         }
 
+        console.log('Upload Button:', uploadButton);
+        console.log('File Input:', fileInput);
+
         uploadButton.addEventListener('click', () => {
+            console.log('Upload button clicked');
             fileInput.click();
         });
 
         fileInput.addEventListener('change', async (event) => {
+            console.log('File input changed');
             selectedFile = event.target.files[0];
-            if (!selectedFile) return;
+            if (!selectedFile) {
+                console.log('No file selected');
+                return;
+            }
 
-            // Open payment modal
+            console.log('Selected file:', selectedFile);
+
             paymentModal.style.display = 'flex';
         });
 
@@ -179,7 +188,6 @@
             }
 
             try {
-                // Verify payment
                 const verifyResponse = await fetch('/verify-payment', {
                     method: 'POST',
                     headers: {
@@ -194,7 +202,6 @@
                 const verifyResult = await verifyResponse.json();
 
                 if (verifyResult.ready_to_upload) {
-                    // Payment verified, proceed with upload
                     const formData = new FormData();
                     formData.append('file', selectedFile);
                     formData.append('tx_hash', txHash);
